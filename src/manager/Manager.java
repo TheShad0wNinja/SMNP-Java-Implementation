@@ -16,15 +16,17 @@ public class Manager {
     private boolean running;
     private Thread trapListenerThread;
     private Thread responseListenerThread;
-    private ConcurrentHashMap<InetAddress, AgentInfo> agents;
+    private ConcurrentHashMap<String, AgentInfo> agents;
     private final Object pollingLock = new Object();
 
     private static class AgentInfo {
         public final int port;
+        public final InetAddress address;
         public final String description;
 
-        public AgentInfo(int port, String description) {
+        public AgentInfo(int port, InetAddress address, String description) {
             this.port = port;
+            this.address = address;
             this.description = description;
         }
     }
@@ -84,7 +86,7 @@ public class Manager {
                 InetAddress agentAddress = InetAddress.getByName(parts[0]);
                 int agentPort = Integer.parseInt(parts[1]);
                 
-                agents.put(agentAddress, new AgentInfo(agentPort, "Agent at " + trap.getValue()));
+                agents.put(trap.getValue(), new AgentInfo(agentPort, agentAddress, "Agent at " + trap.getValue()));
                 System.out.println("New agent connected: " + trap.getValue());
             } catch (Exception e) {
                 System.err.println("Error handling connection request: " + e.getMessage());
@@ -100,8 +102,8 @@ public class Manager {
         if (!running) return;
         
         try {
-            for (InetAddress agentAddress : agents.keySet()) {
-                AgentInfo agentInfo = agents.get(agentAddress);
+            for (var agentInfo : agents.values()) {
+//                AgentInfo agentInfo = agents.get(agentAddress);
                 
                 // Poll each OID and wait for response
                 String[] oids = {
@@ -114,7 +116,7 @@ public class Manager {
                 
                 for (String oid : oids) {
                     synchronized (pollingLock) {
-                        pollOID(agentAddress, agentInfo.port, oid);
+                        pollOID(agentInfo.address, agentInfo.port, oid);
                         pollingLock.wait(5000); // Wait up to 5 seconds for response
                     }
                 }
