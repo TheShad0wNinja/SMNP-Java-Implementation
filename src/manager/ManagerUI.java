@@ -57,7 +57,7 @@ public class ManagerUI extends JFrame {
         clearButton.addActionListener(e -> messagePanel.clear());
         pollButton.addActionListener(e -> pollDevices());
 
-        // Initialize manager
+        // Initialize manager & override the handle functions to display data in the UI
         try {
             manager = new Manager() {
                 @Override

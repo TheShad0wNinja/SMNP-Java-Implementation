@@ -9,27 +9,15 @@ import java.io.*;
 import java.util.concurrent.*;
 
 public class Manager {
-    private static final int POLLING_PORT = 5000;
-    private static final int TRAP_PORT = 5001;
-    private ConnectionUtil pollingConnection;
-    private ConnectionUtil trapConnection;
+    public static final int POLLING_PORT = 5000;
+    public static final int TRAP_PORT = 5001;
+    private final ConnectionUtil pollingConnection;
+    private final ConnectionUtil trapConnection;
     private boolean running;
-    private Thread trapListenerThread;
-    private Thread responseListenerThread;
-    private ConcurrentHashMap<String, AgentInfo> agents;
+    private final ConcurrentHashMap<String, AgentInfo> agents;
     private final Object pollingLock = new Object();
 
-    private static class AgentInfo {
-        public final int port;
-        public final InetAddress address;
-        public final String description;
-
-        public AgentInfo(int port, InetAddress address, String description) {
-            this.port = port;
-            this.address = address;
-            this.description = description;
-        }
-    }
+    private record AgentInfo(int port, InetAddress address, String description) {}
 
     public Manager() throws SocketException {
         pollingConnection = new ConnectionUtil(POLLING_PORT);
@@ -39,12 +27,12 @@ public class Manager {
     }
 
     public void start() {
-        // Start trap listener thread
-        trapListenerThread = new Thread(this::listenForTraps);
+        // Start a thread to listen to trap messages
+        Thread trapListenerThread = new Thread(this::listenForTraps);
         trapListenerThread.start();
-        
-        // Start response listener thread
-        responseListenerThread = new Thread(this::listenForResponses);
+
+        // Start a thread to listen to responses from sent requests
+        Thread responseListenerThread = new Thread(this::listenForResponses);
         responseListenerThread.start();
     }
 
@@ -52,11 +40,10 @@ public class Manager {
         while (running) {
             try {
                 Message trap = trapConnection.receiveMessage();
-                handleTrap(trap);
+                new Thread(() -> handleTrap(trap)).start();
             } catch (Exception e) {
-                if (running) {
+                if (running)
                     System.err.println("Error receiving trap: " + e.getMessage());
-                }
             }
         }
     }
@@ -78,16 +65,22 @@ public class Manager {
     }
 
     protected void handleTrap(Message trap) {
+        if (trap.pduType() != PDUType.TRAP) {
+            System.out.println("Received trap: " + trap);
+            return;
+        }
+
         System.out.println("Received trap: " + trap);
-        
-        if (trap.getPduType() == PDUType.TRAP && trap.getOid().equals(OID.CONNECTION_STATUS)) {
+
+        // Handle Different Trap Types
+        if (trap.oid().equals(OID.CONNECTION_STATUS)) {
             try {
-                String[] parts = trap.getValue().split(":");
+                String[] parts = trap.value().split(":");
                 InetAddress agentAddress = InetAddress.getByName(parts[0]);
                 int agentPort = Integer.parseInt(parts[1]);
                 
-                agents.put(trap.getValue(), new AgentInfo(agentPort, agentAddress, "Agent at " + trap.getValue()));
-                System.out.println("New agent connected: " + trap.getValue());
+                agents.put(trap.value(), new AgentInfo(agentPort, agentAddress, "Agent at " + trap.value()));
+                System.out.println("New agent connected: " + trap.value());
             } catch (Exception e) {
                 System.err.println("Error handling connection request: " + e.getMessage());
             }
@@ -103,8 +96,7 @@ public class Manager {
         
         try {
             for (var agentInfo : agents.values()) {
-//                AgentInfo agentInfo = agents.get(agentAddress);
-                
+
                 // Poll each OID and wait for response
                 String[] oids = {
                     OID.SYSTEM_DESCRIPTION,

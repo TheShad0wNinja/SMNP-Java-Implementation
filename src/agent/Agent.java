@@ -3,6 +3,7 @@ package agent;
 import main.Message;
 import main.Message.PDUType;
 import main.OID;
+import manager.Manager;
 import util.ConnectionUtil;
 import java.net.*;
 import java.io.*;
@@ -10,33 +11,33 @@ import java.io.*;
 public class Agent {
     private static final int BASE_PORT = 5002; // Start port for agents
     private static final int MAX_PORT_ATTEMPTS = 100; // Maximum number of ports to try
-    private ConnectionUtil connection;
+    private final ConnectionUtil connection;
     private boolean running;
-    private Thread requestListenerThread;
-    private Thread monitoringThread;
-    private InetAddress managerAddress;
+    private final InetAddress managerAddress;
     private boolean connected;
-    private long startTime; // For uptime calculation
-    private int agentPort; // The port this agent is using
+    private final long startTime; // For uptime calculation
+    private final int agentPort; // The port this agent is using
 
-    public Agent() throws SocketException {
-        agentPort = findAvailablePort();
-        connection = new ConnectionUtil(agentPort);
-        running = true;
-        connected = false;
-        try {
-            managerAddress = InetAddress.getByName("localhost");
-        } catch (UnknownHostException e) {
-            throw new SocketException("Failed to resolve localhost: " + e.getMessage());
-        }
-        startTime = System.currentTimeMillis();
-    }
+//    public Agent() throws SocketException {
+//        agentPort = findAvailablePort();
+//        connection = new ConnectionUtil(agentPort);
+//        running = true;
+//        connected = false;
+//        try {
+//            managerAddress = InetAddress.getByName("localhost");
+//        } catch (UnknownHostException e) {
+//            throw new SocketException("Failed to resolve localhost: " + e.getMessage());
+//        }
+//        startTime = System.currentTimeMillis();
+//    }
 
     public Agent(String managerHost) throws UnknownHostException, SocketException {
         agentPort = findAvailablePort();
         connection = new ConnectionUtil(agentPort);
+
         running = true;
         connected = false;
+
         managerAddress = InetAddress.getByName(managerHost);
         startTime = System.currentTimeMillis();
     }
@@ -65,12 +66,12 @@ public class Agent {
         }
 
         // Start request listener thread
-        requestListenerThread = new Thread(this::listenForRequests);
+        Thread requestListenerThread = new Thread(this::listenForRequests);
         requestListenerThread.start();
         
         // Start monitoring thread
-        monitoringThread = new Thread(this::monitorSystem);
-        monitoringThread.start();
+//        monitoringThread = new Thread(this::monitorSystem);
+//        monitoringThread.start();
     }
 
     private void sendConnectionRequest() throws IOException {
@@ -102,18 +103,18 @@ public class Agent {
             System.out.println("Received request: " + request);
 
             // Check if this is a connection confirmation
-            if (request.getPduType() == PDUType.GET_RESPONSE && 
-                request.getOid().equals(OID.CONNECTION_STATUS) &&
-                request.getValue().equals("connected")) {
+            if (request.pduType() == PDUType.GET_RESPONSE &&
+                request.oid().equals(OID.CONNECTION_STATUS) &&
+                request.value().equals("connected")) {
                 connected = true;
                 System.out.println("Successfully connected to manager");
                 return;
             }
 
             // Handle regular requests based on OID
-            String responseValue = getValueForOID(request.getOid());
+            String responseValue = getValueForOID(request.oid());
             Message response = new Message("public", PDUType.GET_RESPONSE, 
-                                         request.getOid(), responseValue);
+                                         request.oid(), responseValue);
             sendResponse(response, managerAddress);
         } catch (Exception e) {
             System.err.println("Error handling request: " + e.getMessage());
@@ -148,24 +149,24 @@ public class Agent {
     }
 
     private void sendResponse(Message message, InetAddress address) throws IOException {
-        connection.sendMessage(message, address, 5000); // Manager's polling port
+        connection.sendMessage(message, address, Manager.POLLING_PORT);
     }
 
-    protected void monitorSystem() {
-        while (running) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                if (running) {
-                    System.err.println("Error during monitoring: " + e.getMessage());
-                }
-            }
-        }
-    }
+//    protected void monitorSystem() {
+//        while (running) {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                if (running) {
+//                    System.err.println("Error during monitoring: " + e.getMessage());
+//                }
+//            }
+//        }
+//    }
 
     public void sendTrap(Message trap) throws IOException {
         if (managerAddress != null) {
-            connection.sendMessage(trap, managerAddress, 5001); // Manager's trap port
+            connection.sendMessage(trap, managerAddress, Manager.TRAP_PORT);
         }
     }
 

@@ -23,6 +23,4 @@ public class OID {
     
     // Connection OIDs
     public static final String CONNECTION_STATUS = "5.1.1";   // Connection status
-    public static final String CONNECTION_TYPE = "5.1.2";     // Connection type
-    public static final String CONNECTION_SPEED = "5.1.3";    // Connection speed
-} 
+}

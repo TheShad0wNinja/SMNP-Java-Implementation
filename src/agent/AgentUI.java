@@ -3,6 +3,7 @@ package agent;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
+import java.net.UnknownHostException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.SocketException;
 import main.Message;
@@ -18,8 +19,8 @@ public class AgentUI extends Agent {
     private JButton sendTrapButton;
     private AtomicBoolean isRunning = new AtomicBoolean(false);
 
-    public AgentUI() throws SocketException {
-        super();
+    public AgentUI(String managerAddress) throws SocketException, UnknownHostException {
+        super(managerAddress);
         initializeUI();
     }
 
@@ -116,11 +117,11 @@ public class AgentUI extends Agent {
         super.handleRequest(request);
     }
 
-    @Override
-    protected void monitorSystem() {
-        appendMessage("System monitoring started");
-        super.monitorSystem();
-    }
+//    @Override
+//    protected void monitorSystem() {
+//        appendMessage("System monitoring started");
+//        super.monitorSystem();
+//    }
 
     public void show() {
         frame.setVisible(true);
@@ -128,7 +129,7 @@ public class AgentUI extends Agent {
 
     public static void main(String[] args) {
         try {
-            AgentUI agentUI = new AgentUI();
+            AgentUI agentUI = new AgentUI("localhost");
             agentUI.show();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, 
